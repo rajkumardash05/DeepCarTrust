@@ -69,7 +69,6 @@ class Deep_Models:
         self.sample_weight = param['sample_weight']
         self.dropout_spec = param['dropout_spec']
         self.class_weight = param['class_weight']
-
             
     def build_model(self):
         
@@ -84,23 +83,7 @@ class Deep_Models:
         
         self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics = self.metrics)             
         
-        return self.model    
-    
-    def tune_model_Dropout(self, dropout_rate=0.0, weight_constraint=0):
-        for hl in self.hidden_layers:
-            if self.hidden_layers.index(hl) == 0: # adding the very first hidden layer
-                self.model.add(Dense(hl, input_dim=self.input_dm, kernel_initializer='normal', activation =self.activation_fn[0], kernel_constraint=maxnorm(weight_constraint)))
-                self.model.add(Dropout(dropout_rate))
-            else:
-                self.model.add(Dense(hl, kernel_initializer='normal', activation = self.get_activation_fn(self.activation_fn, self.hidden_layers.index(hl))))                
-                self.model.add(Dropout(dropout_rate))
-                
-        self.model.add(Dense(self.no_of_output, kernel_initializer='normal', activation = self.activation_fn[-1]))          
-        
-        self.model.compile(loss=self.loss, optimizer=self.optimizer, metrics = self.metrics)             
-        
-        return self.model    
-        
+        return self.model            
 
     def build_estimator(self):
         self.estimators.append(('standardize', StandardScaler()))
@@ -140,24 +123,5 @@ class Deep_Models:
         self.pipeline.fit(X, Y, **{'mlp__class_weight': self.sample_weight})
         
         return self.pipeline
-        
-    def DNN_Models_Tuner(self, X, Y, weight_constraint, dropout_rate, **param):
-       self.update_parameters(param)
-       model = KerasClassifier(build_fn=self.tune_model_Dropout, epochs=100, batch_size=10, verbose=0)
-       # define the grid search parameter
-       weight_constraint = weight_constraint
-       dropout_rate = dropout_rate
-       #pdb.set_trace()
-       param_grid = dict(dropout_rate=dropout_rate, weight_constraint=weight_constraint)
-       
-       grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1, cv=3)
-       
-       grid_result = grid.fit(X, Y)
-    # summarize results
-       print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-       means = grid_result.cv_results_['mean_test_score']
-       stds = grid_result.cv_results_['std_test_score']
-       params = grid_result.cv_results_['params']
-       for mean, stdev, param in zip(means, stds, params):
-           print("%f (%f) with: %r" % (mean, stdev, param))
+
         
