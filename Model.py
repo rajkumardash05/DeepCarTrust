@@ -677,145 +677,12 @@ def Binary_classifier_car(DNN_Keras = 'Keras'):
     Model_Eval.PR_Curve_Generator(df, len(target_columns), 1, data, list(data.columns).index('L'))
         
     return BClassifier_Car, data_excel, data, df
-    
-def Keras_model_tuner():
-    weight_constraint = [1, 2, 3, 4, 5]
-    dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    
-    input_dict = {
-            'hidden_layers' : hidden_units_spec,
-            'input_dm' : 3,
-            'activation_fn': ['relu', 'relu', 'relu', 'sigmoid'],  # should be sigmoid at the end according to https://www.depends-on-the-definition.com/guide-to-multi-label-classification-with-neural-networks/
-            'k_fold': 0, # <=0 : for no kfold cross-validation, >0: do kfild validation
-            'loss' : 'binary_crossentropy',  # treat each output as a binary classifier - thus ensure to trigger the output indipendantly from others
-            'optimizer' : 'adam',
-            'model_type':'classifier',
-            'no_of_output' : 6,
-            'metrics' : ['accuracy'],
-            'dropout_spec': dropout_spec,
-            'sample_weight' : None#np.array(sample_weight)
-         } 
-    df_utr_MOC = read_data(filename, features, target_MO, sheet_name[2])      # reading untrustworthy multiclass data
-    train_df_MOC, test_df_MOC = np.split(df_utr_MOC.sample(frac=1), [int(.8*len(df_utr_MOC))])    
-    
-    x_train = train_df_MOC[features]
-    y_train = train_df_MOC[target_MO]
-    
-    Model_Tuner = DM.Deep_Models('Keras Model Tuner')
-    Model_Tuner.DNN_Models_Tuner(x_train, y_train, weight_constraint, dropout_rate, **input_dict)
-    
-def Keras_model_tuner_Binary_Car():
-    weight_constraint = [1, 2, 3, 4, 5]
-    dropout_rate = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-
-    data_excel, data = read_data_car(filename_car, data_car_columns, sheet_name = 'data_car')   
-    
-    train_data, test_data = np.split(data.sample(frac=1), [int(0.7*len(data))])
-#    data = data[['A8', 'RS8', 'D8', 'C']] # when we do not need all columns to consider
-    #Change the target avobe and below - C, L or R based on which target to be used in the binary classifier
-    
-    target_columns = ['C']
-    
-    feature_columns = [x for x in list(data.columns) if x not in target_columns]      
-    
-    input_dict = {
-            'hidden_layers' : hidden_units_spec,
-            'input_dm' : len(feature_columns),
-            'activation_fn': ['relu', 'relu', 'relu', 'sigmoid'],  # should be sigmoid at the end according to https://www.depends-on-the-definition.com/guide-to-multi-label-classification-with-neural-networks/
-            'k_fold': 0, # <=0 : for no kfold cross-validation, >0: do kfild validation
-            'loss' : 'binary_crossentropy',  # treat each output as a binary classifier - thus ensure to trigger the output indipendantly from others
-            'optimizer' : 'adam',
-            'model_type':'classifier',
-            'no_of_output' : len(target_columns),
-            'metrics' : ['accuracy'],
-            'dropout_spec': dropout_spec,
-            'sample_weight' : None#np.array(sample_weight)
-         } 
-    
-    x_train = train_data[feature_columns]
-    y_train = train_data[target_columns]
-    
-    Model_Tuner = DM.Deep_Models('Keras Model Tuner')
-    Model_Tuner.DNN_Models_Tuner(x_train, y_train, weight_constraint, dropout_rate, **input_dict)
-   
-
-def final_result_analysis():
-    print('Processing Final Results')
-    data_excel, data = read_data_car(filename_car, data_car_columns, sheet_name = 'data_car')
-    df_final = pd.read_excel(filename_analysis)
-    columns = ['C', 'L', 'R', 'C_Pred', 'L_Pred', 'R_Pred', 'C_Pred_Class', 'L_Pred_Class', 'R_Pred_Class']        
-    
-    df_final = df_final[columns]
-#    df_final.C = df_final.C.gt(0.5).astype(int)
-#    df_final.L = df_final.L.gt(0.5).astype(int)
-#    df_final.R = df_final.R.gt(0.5).astype(int)
-#    
-#    df_final.C_Pred_Class = df_final.C_Pred_Class.gt(0.5).astype(int)
-#    df_final.L_Pred_Class = df_final.L_Pred_Class.gt(0.5).astype(int)
-#    df_final.R_Pred_Class = df_final.R_Pred_Class.gt(0.5).astype(int)
-    
-    Model_Eval = ME.Model_Evaluation("Keras_Multiclass_Classifier_Car")
-    
-    Model_Eval.metrics_printer(df_final, len(target_car), 6)
-    Model_Eval.ROC_Curve_Generator_Subplot(df_final, len(target_car), 3) # Ofset to the real probability not the class level, see the df and the generated excel file
-
-    Model_Eval.metrics_file_writer(metrics_file_car, df_final, len(target_car), 6)
-    # list(data.columns).index('C') this is the offset of output labels in the dataset
-    Model_Eval.PR_Curve_Generator_Subplot(df_final, len(target_car), 3, data, list(data.columns).index('C')) # adjust to 3 when phasetime will be added as feature set
-    
-def final_result_analysis_DNN_Keras(Model):
-    print('Processing Final Results DNN all data - trust, non-trust classification')
-    
-    if Model == 'Keras':
-        filename_two_class = filename_analysis_Keras
-    elif Model == 'DNN':
-        filename_two_class = filename_analysis_DNN
-    else:
-        print('Wrong Method Name')
-        exit()
-    
-    df_tr = read_data(filename, features, target, sheet_name[0])    # Read the trustworthy data
-    df_utr = read_data(filename, features, target, sheet_name[1])    # Read the untrustworthy data
-    df_combined = prepare_data(df_tr, df_utr, True)   
-    
-    df_final = pd.read_excel(filename_two_class)
-    columns = ['Target', 'Prediction', 'Class']        
-    
-    df_final = df_final[columns]
-#    pdb.set_trace()
-    
-    Model_Eval = ME.Model_Evaluation("Evaluating DNN classifier for trus vs non-trust")
-    #    pdb.set_trace()
-    Model_Eval.metrics_printer(df_final, len(target), 2)
-    Model_Eval.ROC_Curve_Generator(df_final, len(target), 1) # Ofset to the real probability not the class level, see the df and the generated excel file
-
-    Model_Eval.metrics_file_writer(metrics_file_car, df_final, len(target), 2)
-    # list(data.columns).index('C') this is the offset of output labels in the dataset
-    Model_Eval.PR_Curve_Generator(df_final, len(target), 1, df_combined, list(df_combined.columns).index('Two_Class')) # adjust to 3 when phasetime will be added as feature set
-    Model_Eval.figure_generator_single_output(df_final, len(target), 1, df_combined, list(df_combined.columns).index('Two_Class'))
-
-def box_plot_analysis():
-    df_final = pd.read_excel(filename_analysis_Keras)
-    
-    df_final_car = pd.read_excel(filename_analysis)
-    columns = ['C', 'L', 'R', 'C_Pred', 'L_Pred', 'R_Pred', 'C_Pred_Class', 'L_Pred_Class', 'R_Pred_Class']        
-    
-    df_final_car = df_final_car[columns]
-    
-    Model_Eval = ME.Model_Evaluation("Evaluating DNN classifier for trus vs non-trust")
-   
-    param = ["Target", "Prediction"]
-    
-    Model_Eval.box_plot_generator(df_final, param, df_final_car, columns)    
-    
+       
 if __name__ == '__main__':
     print('Hi from the main')
     #df, data = read_data_car(filename_car, data_car_columns, sheet_name = 'data_car')
     
 #    MOClassifier, data_excel, data_processed, test_df_MOC, df = Keras_multiclass_cassifier_car()
-
-
-    final_result_analysis()
  #   DNN_multiclass_classifier_Car()    
 #    while True:
 #    classifier, test_df, df = DNN_classifier_all_data()
@@ -823,14 +690,9 @@ if __name__ == '__main__':
 #            continue
 #        else: 
 #            break 
-#    final_result_analysis_DNN_Keras('Keras')
 
-#    box_plot_analysis()
 
 #    Keras_classifier_all_data()
-    
-    
-    
 #    BClassifier, data_excel, data_processed, df = Binary_classifier_car('Keras')
 #    Keras_model_tuner_Binary_Car()
 #    regressor, test_df_Reg = keras_regression_fn()
@@ -839,8 +701,5 @@ if __name__ == '__main__':
 #     DNN_classifier_untrustworthy()
 #    BClassifier, test_df_BC  = Keras_binary_classifier()
 
-
-# Correlation check:
-#   data_processed.drop(target_car, axis=1).apply(lambda x: x.corr(data_processed.L))
     
 
